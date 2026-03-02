@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rock Paper Scissors - Arcade Zone</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background:#080818;
+      color:#fff;
+      font-family:'Press Start 2P', monospace;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding:20px;
+    }
+    nav { width:100%; max-width:700px; margin-bottom:20px; }
+    .back-btn {
+      color:#ffd93d;
+      text-decoration:none;
+      font-size:10px;
+      border:1px solid #ffd93d;
+      padding:8px 14px;
+      border-radius:6px;
+      transition:background 0.2s;
+    }
+    .back-btn:hover { background:rgba(255,217,61,0.15); }
+    h1 {
+      color:#ffd93d;
+      font-size:clamp(12px,2.5vw,20px);
+      text-align:center;
+      margin-bottom:30px;
+      text-shadow:0 0 20px rgba(255,217,61,0.5);
+    }
+    .scoreboard {
+      display:flex;
+      gap:40px;
+      margin-bottom:30px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .score-box {
+      text-align:center;
+      background:#0d0d2b;
+      border:1px solid #2a2a5a;
+      border-radius:10px;
+      padding:16px 24px;
+      min-width:100px;
+    }
+    .score-label { font-size:8px; color:#888; margin-bottom:10px; }
+    .score-val { font-size:28px; }
+    .wins-val { color:#6bcb77; }
+    .losses-val { color:#ff6b6b; }
+    .draws-val { color:#ffd93d; }
+    .arena {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:30px;
+      margin-bottom:30px;
+      flex-wrap:wrap;
+    }
+    .player-side, .cpu-side {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:12px;
+    }
+    .side-label { font-size:9px; color:#888; letter-spacing:2px; }
+    .choice-display {
+      width:120px;
+      height:120px;
+      border-radius:50%;
+      border:3px solid #2a2a5a;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:60px;
+      background:#0d0d2b;
+      transition:all 0.3s ease;
+      position:relative;
+      overflow:hidden;
+    }
+    .choice-display.glow-win { border-color:#6bcb77; box-shadow:0 0 30px rgba(107,203,119,0.6); }
+    .choice-display.glow-lose { border-color:#ff6b6b; box-shadow:0 0 30px rgba(255,107,107,0.6); }
+    .choice-display.glow-draw { border-color:#ffd93d; box-shadow:0 0 20px rgba(255,217,61,0.4); }
+    .choice-display .thinking {
+      font-size:14px;
+      color:#444;
+      animation:thinking 0.5s infinite;
+    }
+    @keyframes thinking {
+      0%,100% { opacity:0.2; }
+      50% { opacity:1; }
+    }
+    .vs {
+      font-size:24px;
+      color:#333;
+      font-weight:bold;
+      padding:0 10px;
+    }
+    .result-display {
+      min-height:50px;
+      font-size:clamp(14px,3vw,22px);
+      text-align:center;
+      margin-bottom:20px;
+      transition:all 0.3s;
+    }
+    .result-win { color:#6bcb77; text-shadow:0 0 20px rgba(107,203,119,0.6); }
+    .result-lose { color:#ff6b6b; text-shadow:0 0 20px rgba(255,107,107,0.6); }
+    .result-draw { color:#ffd93d; }
+    .result-detail { font-size:9px; color:#666; margin-top:8px; }
+    .choices {
+      display:flex;
+      gap:16px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-bottom:24px;
+    }
+    .choice-btn {
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:10px;
+      background:#0d0d2b;
+      border:2px solid #1e1e4a;
+      border-radius:16px;
+      padding:20px 28px;
+      cursor:pointer;
+      transition:all 0.2s;
+      font-family:'Press Start 2P', monospace;
+      color:#fff;
+    }
+    .choice-btn:hover {
+      border-color:#ffd93d;
+      box-shadow:0 0 20px rgba(255,217,61,0.3);
+      transform:translateY(-4px) scale(1.05);
+    }
+    .choice-btn:active { transform:scale(0.96); }
+    .choice-btn.selected {
+      border-color:#ffd93d;
+      box-shadow:0 0 25px rgba(255,217,61,0.4);
+    }
+    .choice-btn .emoji { font-size:48px; }
+    .choice-btn .name { font-size:8px; color:#aaa; }
+    .reset-btn {
+      background:transparent;
+      border:1px solid #333;
+      color:#666;
+      padding:10px 20px;
+      font-family:'Press Start 2P', monospace;
+      font-size:9px;
+      border-radius:8px;
+      cursor:pointer;
+      transition:all 0.2s;
+    }
+    .reset-btn:hover { border-color:#ffd93d; color:#ffd93d; }
+    .streak-display {
+      font-size:9px;
+      color:#555;
+      text-align:center;
+      margin-bottom:16px;
+    }
+    .streak-display .streak-count { color:#ffd93d; }
+    @keyframes bounce {
+      0%,100% { transform:scale(1); }
+      50% { transform:scale(1.15); }
+    }
+    .bounce { animation:bounce 0.4s ease; }
+    @keyframes shake {
+      0%,100% { transform:translateX(0); }
+      25% { transform:translateX(-8px); }
+      75% { transform:translateX(8px); }
+    }
+    .shake { animation:shake 0.4s ease; }
+  </style>
+</head>
+<body>
+<nav><a class="back-btn" href="index.html">&larr; BACK</a></nav>
+<h1>ROCK PAPER SCISSORS</h1>
+
+<div class="scoreboard">
+  <div class="score-box"><div class="score-label">WINS</div><div class="score-val wins-val" id="winsEl">0</div></div>
+  <div class="score-box"><div class="score-label">LOSSES</div><div class="score-val losses-val" id="lossesEl">0</div></div>
+  <div class="score-box"><div class="score-label">DRAWS</div><div class="score-val draws-val" id="drawsEl">0</div></div>
+</div>
+
+<div class="streak-display">Current Streak: <span class="streak-count" id="streakEl">0</span></div>
+
+<div class="arena">
+  <div class="player-side">
+    <div class="side-label">YOU</div>
+    <div class="choice-display" id="playerDisplay">
+      <span>?</span>
+    </div>
+  </div>
+  <div class="vs">VS</div>
+  <div class="cpu-side">
+    <div class="side-label">CPU</div>
+    <div class="choice-display" id="cpuDisplay">
+      <span>?</span>
+    </div>
+  </div>
+</div>
+
+<div class="result-display" id="resultEl">
+  <div>Choose your weapon!</div>
+</div>
+
+<div class="choices">
+  <button class="choice-btn" onclick="play('rock')">
+    <span class="emoji">✊</span>
+    <span class="name">ROCK</span>
+  </button>
+  <button class="choice-btn" onclick="play('paper')">
+    <span class="emoji">✋</span>
+    <span class="name">PAPER</span>
+  </button>
+  <button class="choice-btn" onclick="play('scissors')">
+    <span class="emoji">✌️</span>
+    <span class="name">SCISSORS</span>
+  </button>
+</div>
+
+<button class="reset-btn" onclick="resetScore()">RESET SCORE</button>
+
+<script>
+const CHOICES = ['rock','paper','scissors'];
+const EMOJI = { rock:'✊', paper:'✋', scissors:'✌️' };
+const BEATS = { rock:'scissors', scissors:'paper', paper:'rock' };
+
+let wins=0, losses=0, draws=0, streak=0, playing=false;
+
+function play(playerChoice) {
+  if(playing) return;
+  playing=true;
+
+  const playerDisplay = document.getElementById('playerDisplay');
+  const cpuDisplay = document.getElementById('cpuDisplay');
+  const resultEl = document.getElementById('resultEl');
+
+  // Remove previous glows
+  playerDisplay.className='choice-display';
+  cpuDisplay.className='choice-display';
+
+  // Show player choice immediately
+  playerDisplay.innerHTML = `<span style="font-size:60px">${EMOJI[playerChoice]}</span>`;
+
+  // Animate CPU thinking
+  cpuDisplay.innerHTML = `<span class="thinking">...</span>`;
+  resultEl.innerHTML = '<div style="color:#888">CPU is thinking...</div>';
+
+  // Reveal CPU choice after delay
+  setTimeout(()=>{
+    const cpuChoice = CHOICES[Math.floor(Math.random()*3)];
+    cpuDisplay.innerHTML = `<span style="font-size:60px">${EMOJI[cpuChoice]}</span>`;
+
+    setTimeout(()=>{
+      let result, resultClass, detail;
+
+      if(playerChoice===cpuChoice) {
+        result="DRAW!"; resultClass='result-draw'; draws++;
+        streak=0;
+        detail=`Both chose ${playerChoice}`;
+        playerDisplay.classList.add('glow-draw');
+        cpuDisplay.classList.add('glow-draw');
+        playerDisplay.classList.add('bounce');
+        cpuDisplay.classList.add('bounce');
+      } else if(BEATS[playerChoice]===cpuChoice) {
+        result="YOU WIN!"; resultClass='result-win'; wins++; streak++;
+        detail=`${playerChoice} beats ${cpuChoice}`;
+        playerDisplay.classList.add('glow-win');
+        cpuDisplay.classList.add('glow-lose');
+        playerDisplay.classList.add('bounce');
+        cpuDisplay.classList.add('shake');
+      } else {
+        result="YOU LOSE!"; resultClass='result-lose'; losses++; streak=0;
+        detail=`${cpuChoice} beats ${playerChoice}`;
+        playerDisplay.classList.add('glow-lose');
+        cpuDisplay.classList.add('glow-win');
+        playerDisplay.classList.add('shake');
+        cpuDisplay.classList.add('bounce');
+      }
+
+      resultEl.innerHTML=`
+        <div class="${resultClass}">${result}</div>
+        <div class="result-detail">${detail}${streak>=3?' 🔥 '+streak+' streak!':''}</div>
+      `;
+
+      document.getElementById('winsEl').textContent=wins;
+      document.getElementById('lossesEl').textContent=losses;
+      document.getElementById('drawsEl').textContent=draws;
+      document.getElementById('streakEl').textContent=streak;
+
+      playing=false;
+    }, 300);
+  }, 700);
+}
+
+function resetScore() {
+  wins=losses=draws=streak=0;
+  document.getElementById('winsEl').textContent=0;
+  document.getElementById('lossesEl').textContent=0;
+  document.getElementById('drawsEl').textContent=0;
+  document.getElementById('streakEl').textContent=0;
+  document.getElementById('playerDisplay').innerHTML='<span>?</span>';
+  document.getElementById('cpuDisplay').innerHTML='<span>?</span>';
+  document.getElementById('playerDisplay').className='choice-display';
+  document.getElementById('cpuDisplay').className='choice-display';
+  document.getElementById('resultEl').innerHTML='<div>Choose your weapon!</div>';
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='1'||e.key==='r'||e.key==='R') play('rock');
+  else if(e.key==='2'||e.key==='p'||e.key==='P') play('paper');
+  else if(e.key==='3'||e.key==='s'||e.key==='S') play('scissors');
+});
+</script>
+</body>
+</html>

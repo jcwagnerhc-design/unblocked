@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Missile Command - Arcade Zone</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background:#000;
+      color:#fff;
+      font-family:'Press Start 2P', monospace;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      min-height:100vh;
+      padding:16px;
+      user-select:none;
+    }
+    nav { width:100%; max-width:700px; margin-bottom:10px; }
+    .back-btn {
+      color:#ff6b6b;
+      text-decoration:none;
+      font-size:9px;
+      border:1px solid #ff6b6b;
+      padding:7px 12px;
+      border-radius:6px;
+    }
+    .back-btn:hover { background:rgba(255,107,107,0.15); }
+    h1 {
+      color:#ff6b6b;
+      font-size:clamp(12px,3vw,20px);
+      margin-bottom:10px;
+      text-shadow:0 0 20px rgba(255,107,107,0.6);
+    }
+    .hud {
+      display:flex;
+      gap:30px;
+      margin-bottom:8px;
+      font-size:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .hud-item { text-align:center; }
+    .hud-label { font-size:7px; color:#888; margin-bottom:4px; }
+    canvas {
+      border:1px solid #1a0a0a;
+      cursor:crosshair;
+      max-width:100%;
+      display:block;
+    }
+    .hint {
+      font-size:8px;
+      color:#444;
+      margin-top:8px;
+      text-align:center;
+      line-height:2;
+    }
+    .hint span { color:#888; }
+    #overlay {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.92);
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      gap:14px; z-index:10;
+    }
+    #overlay h2 { font-size:clamp(14px,4vw,26px); color:#ff6b6b; }
+    #overlay p { font-size:9px; color:#aaa; text-align:center; line-height:2.2; max-width:400px; }
+    #overlay .final-score { font-size:22px; color:#fff; }
+    .start-btn {
+      background:#ff6b6b; color:#000;
+      border:none; padding:12px 22px;
+      font-family:'Press Start 2P', monospace;
+      font-size:11px; border-radius:8px;
+      cursor:pointer;
+    }
+    .start-btn:hover { filter:brightness(1.2); }
+  </style>
+</head>
+<body>
+<nav><a class="back-btn" href="index.html">&larr; BACK</a></nav>
+<h1>MISSILE COMMAND</h1>
+<div class="hud">
+  <div class="hud-item"><div class="hud-label">SCORE</div><div id="scoreEl">0</div></div>
+  <div class="hud-item"><div class="hud-label">HIGH</div><div id="hiEl">0</div></div>
+  <div class="hud-item"><div class="hud-label">WAVE</div><div id="waveEl">1</div></div>
+  <div class="hud-item"><div class="hud-label">CITIES</div><div id="citiesEl">6</div></div>
+  <div class="hud-item"><div class="hud-label">AMMO</div><div id="ammoEl">30</div></div>
+</div>
+<canvas id="c" width="700" height="500"></canvas>
+<div class="hint"><span>Click</span> to fire interceptor missiles</div>
+
+<div id="overlay">
+  <h2>MISSILE COMMAND</h2>
+  <p>Defend your 6 cities from incoming missiles!<br>
+  Click anywhere to fire an interceptor.<br>
+  Interceptors explode on arrival &mdash; destroy missiles caught in the blast!<br><br>
+  Survive each wave to earn bonus points.</p>
+  <button class="start-btn" id="startBtn">START GAME</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const GROUND_Y = H - 60;
+const overlay = document.getElementById('overlay');
+
+// ── STATE ─────────────────────────────────────────────────
+let score, hiScore=0, wave, cities, ammo;
+let missiles, interceptors, explosions, bombers;
+let gameRunning=false, waveTransition=false, waveTransitionTimer=0;
+let frameId;
+
+// City positions (x center)
+const CITY_XS = [80,150,220,480,550,620];
+const BASE_XS = [50, 350, 650]; // launch bases
+
+function initGame() {
+  score=0; wave=1; cities=[...CITY_XS]; ammo=30;
+  missiles=[]; interceptors=[]; explosions=[]; bombers=[];
+  waveTransition=false;
+  gameRunning=true;
+  startWave();
+  updateHUD();
+}
+
+function startWave() {
+  const count = 5 + wave*3;
+  const speed = 0.4 + wave*0.15;
+  missiles=[];
+  for(let i=0;i<count;i++) {
+    const delay = Math.random()*300 + i*20;
+    const tx = cities.length>0 ? (Math.random()<0.7 ? cities[Math.floor(Math.random()*cities.length)] + (Math.random()-0.5)*40 : Math.random()*W) : Math.random()*W;
+    missiles.push({
+      sx: Math.random()*W,
+      sy: 0,
+      tx: tx,
+      ty: GROUND_Y,
+      progress: 0,
+      speed: speed*(0.8+Math.random()*0.4),
+      delay: delay,
+      active: false,
+      exploded: false,
+      trail: [],
+      isMIRV: wave>=4 && Math.random()<0.15,
+      mirvSpawned: false,
+    });
+  }
+  // Bombers from wave 3
+  bombers=[];
+  if(wave>=3) {
+    const bCount=Math.floor(wave/2);
+    for(let i=0;i<bCount;i++) {
+      const fromLeft=Math.random()<0.5;
+      bombers.push({
+        x: fromLeft?-60:W+60,
+        y: 60+Math.random()*100,
+        dx: fromLeft?1.2:-1.2,
+        bombed:0, bombTimer:0,
+        active:true,
+      });
+    }
+  }
+  ammo += 5 + wave*2;
+  if(ammo>60) ammo=60;
+  updateHUD();
+}
+
+function fireInterceptor(tx,ty) {
+  if(ammo<=0) return;
+  // Find nearest base
+  let bestBase=BASE_XS[1], bestDist=Infinity;
+  for(const bx of BASE_XS) {
+    const d=Math.abs(tx-bx);
+    if(d<bestDist){bestDist=d;bestBase=bx;}
+  }
+  ammo--;
+  interceptors.push({
+    sx:bestBase, sy:GROUND_Y-10,
+    tx:tx, ty:ty,
+    progress:0,
+    speed:4,
+    exploded:false,
+    trail:[],
+  });
+  updateHUD();
+}
+
+function spawnExplosion(x,y,r,maxR,color,duration) {
+  explosions.push({x,y,r,maxR:maxR||60,color:color||'#ff6b6b',dur:duration||40,age:0,expanding:true});
+}
+
+// ── UPDATE ────────────────────────────────────────────────
+let tick=0;
+function update() {
+  if(!gameRunning) return;
+  tick++;
+
+  if(waveTransition) {
+    waveTransitionTimer--;
+    if(waveTransitionTimer<=0) {
+      waveTransition=false;
+      wave++;
+      startWave();
+      updateHUD();
+    }
+    updateExplosions();
+    return;
+  }
+
+  // Activate missiles based on delay
+  for(const m of missiles) {
+    if(!m.active&&!m.exploded) {
+      m.delay--;
+      if(m.delay<=0) m.active=true;
+    }
+  }
+
+  // Move missiles
+  for(const m of missiles) {
+    if(!m.active||m.exploded) continue;
+    const dist=Math.hypot(m.tx-m.sx,m.ty-m.sy);
+    m.progress = Math.min(1, m.progress + m.speed/dist);
+    const cx=m.sx+(m.tx-m.sx)*m.progress;
+    const cy=m.sy+(m.ty-m.sy)*m.progress;
+    m.trail.push({x:cx,y:cy});
+    if(m.trail.length>20) m.trail.shift();
+
+    // MIRV split
+    if(m.isMIRV&&!m.mirvSpawned&&m.progress>0.5) {
+      m.mirvSpawned=true;
+      for(let i=0;i<3;i++) {
+        const ang=(i-1)*0.4;
+        const nx=cx+Math.sin(ang)*200, ny=GROUND_Y;
+        missiles.push({sx:cx,sy:cy,tx:nx,ty:ny,progress:0,speed:m.speed*0.8,delay:0,active:true,exploded:false,trail:[],isMIRV:false,mirvSpawned:false});
+      }
+    }
+
+    if(m.progress>=1) {
+      m.exploded=true;
+      spawnExplosion(cx,cy,4,28,'#ff4400',35);
+      // Check city hit
+      if(cy>=GROUND_Y-30) {
+        for(let i=cities.length-1;i>=0;i--) {
+          if(Math.abs(cities[i]-cx)<25) {
+            cities.splice(i,1);
+            updateHUD();
+          }
+        }
+      }
+      if(cities.length===0) { endGame(); return; }
+    }
+  }
+
+  // Move bombers
+  for(const b of bombers) {
+    if(!b.active) continue;
+    b.x+=b.dx;
+    b.bombTimer++;
+    if(b.bombTimer>80&&b.bombed<3&&cities.length>0) {
+      b.bombTimer=0; b.bombed++;
+      const target=cities[Math.floor(Math.random()*cities.length)];
+      missiles.push({sx:b.x,sy:b.y,tx:target,ty:GROUND_Y,progress:0,speed:0.6+wave*0.1,delay:0,active:true,exploded:false,trail:[],isMIRV:false,mirvSpawned:false});
+    }
+    if(b.x<-100||b.x>W+100) b.active=false;
+  }
+
+  // Move interceptors
+  for(const it of interceptors) {
+    if(it.exploded) continue;
+    const dist=Math.hypot(it.tx-it.sx,it.ty-it.sy);
+    it.progress=Math.min(1,it.progress+it.speed/dist);
+    const cx=it.sx+(it.tx-it.sx)*it.progress;
+    const cy=it.sy+(it.ty-it.sy)*it.progress;
+    it.trail.push({x:cx,y:cy});
+    if(it.trail.length>12) it.trail.shift();
+    if(it.progress>=1) {
+      it.exploded=true;
+      spawnExplosion(cx,cy,5,55,'#4d96ff',50);
+    }
+  }
+
+  // Explosion-missile collision
+  for(const ex of explosions) {
+    if(!ex.expanding) continue;
+    for(const m of missiles) {
+      if(m.exploded) continue;
+      const mx=m.sx+(m.tx-m.sx)*m.progress;
+      const my=m.sy+(m.ty-m.sy)*m.progress;
+      if(Math.hypot(mx-ex.x,my-ex.y)<ex.r) {
+        m.exploded=true;
+        score+=100*(1+Math.floor(wave/2));
+        spawnExplosion(mx,my,4,20,'#ffcc00',25);
+        updateHUD();
+      }
+    }
+    for(const b of bombers) {
+      if(!b.active) continue;
+      if(Math.hypot(b.x-ex.x,b.y-ex.y)<ex.r+20) {
+        b.active=false;
+        score+=500;
+        spawnExplosion(b.x,b.y,6,50,'#ff9900',45);
+        updateHUD();
+      }
+    }
+  }
+
+  updateExplosions();
+
+  // Check wave complete
+  const allDone=missiles.every(m=>m.exploded)&&bombers.every(b=>!b.active);
+  if(allDone) {
+    // Wave bonus
+    const surviving=missiles.filter(m=>!m.active&&!m.exploded).length;
+    const cityBonus=cities.length*500;
+    const ammoBonus=ammo*25;
+    score+=cityBonus+ammoBonus;
+    updateHUD();
+    waveTransition=true;
+    waveTransitionTimer=120;
+    spawnExplosion(W/2,H/2,0,120,'#6bcb77',80);
+  }
+}
+
+function updateExplosions() {
+  for(let i=explosions.length-1;i>=0;i--) {
+    const ex=explosions[i];
+    ex.age++;
+    if(ex.expanding) {
+      ex.r+=ex.maxR/20;
+      if(ex.r>=ex.maxR) ex.expanding=false;
+    } else {
+      ex.r-=ex.maxR/20;
+    }
+    if(ex.age>=ex.dur) explosions.splice(i,1);
+  }
+}
+
+// ── DRAW ──────────────────────────────────────────────────
+function render() {
+  // Sky gradient
+  const grad=ctx.createLinearGradient(0,0,0,GROUND_Y);
+  grad.addColorStop(0,'#000010');
+  grad.addColorStop(1,'#080820');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,W,GROUND_Y);
+
+  // Stars
+  ctx.fillStyle='rgba(255,255,255,0.6)';
+  for(let i=0;i<80;i++) {
+    const sx=(i*137.5)%W, sy=(i*97.3)%GROUND_Y;
+    const blink=Math.sin(tick/30+i)>0.7;
+    if(blink) {
+      ctx.beginPath();
+      ctx.arc(sx,sy,0.8,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Ground
+  const gGrad=ctx.createLinearGradient(0,GROUND_Y,0,H);
+  gGrad.addColorStop(0,'#2a1a0a');
+  gGrad.addColorStop(1,'#1a0a00');
+  ctx.fillStyle=gGrad;
+  ctx.fillRect(0,GROUND_Y,W,H-GROUND_Y);
+
+  // Missile trails
+  for(const m of missiles) {
+    if(!m.active||m.exploded||m.trail.length<2) continue;
+    ctx.strokeStyle='rgba(255,100,0,0.6)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    m.trail.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    ctx.stroke();
+    // Missile head
+    const head=m.trail[m.trail.length-1];
+    ctx.fillStyle='#ff4400';
+    ctx.beginPath();
+    ctx.arc(head.x,head.y,3,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  // Interceptor trails
+  for(const it of interceptors) {
+    if(it.exploded||it.trail.length<2) continue;
+    ctx.strokeStyle='rgba(100,180,255,0.8)';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    it.trail.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    ctx.stroke();
+    const head=it.trail[it.trail.length-1];
+    ctx.fillStyle='#4d96ff';
+    ctx.beginPath();
+    ctx.arc(head.x,head.y,3,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  // Explosions
+  for(const ex of explosions) {
+    const alpha=ex.expanding?0.6:0.6*(1-(ex.age/ex.dur));
+    ctx.strokeStyle=ex.color;
+    ctx.lineWidth=2;
+    ctx.globalAlpha=alpha;
+    ctx.beginPath();
+    ctx.arc(ex.x,ex.y,ex.r,0,Math.PI*2);
+    ctx.stroke();
+    ctx.fillStyle=ex.color;
+    ctx.globalAlpha=alpha*0.15;
+    ctx.beginPath();
+    ctx.arc(ex.x,ex.y,ex.r,0,Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha=1;
+  }
+
+  // Bombers
+  for(const b of bombers) {
+    if(!b.active) continue;
+    ctx.fillStyle='#cc8800';
+    ctx.save();
+    ctx.translate(b.x,b.y);
+    if(b.dx<0) ctx.scale(-1,1);
+    // Simple plane shape
+    ctx.beginPath();
+    ctx.moveTo(-20,0); ctx.lineTo(20,0);
+    ctx.lineTo(14,-8); ctx.lineTo(-14,-8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle='#884400';
+    ctx.fillRect(-5,-12,10,4);
+    ctx.restore();
+  }
+
+  // Cities
+  for(const cx_ of cities) {
+    drawCity(cx_, GROUND_Y);
+  }
+
+  // Launch bases
+  for(const bx of BASE_XS) {
+    drawBase(bx, GROUND_Y);
+  }
+
+  // Ground line
+  ctx.fillStyle='#3a2a0a';
+  ctx.fillRect(0,GROUND_Y,W,3);
+
+  // Wave transition message
+  if(waveTransition) {
+    ctx.fillStyle='rgba(0,0,0,0.5)';
+    ctx.fillRect(0,H/2-40,W,80);
+    ctx.fillStyle='#6bcb77';
+    ctx.font='16px "Press Start 2P"';
+    ctx.textAlign='center';
+    ctx.fillText(`WAVE ${wave} COMPLETE!`,W/2,H/2-10);
+    ctx.fillStyle='#ffd93d';
+    ctx.font='10px "Press Start 2P"';
+    ctx.fillText(`Wave ${wave+1} incoming...`,W/2,H/2+20);
+  }
+}
+
+function drawCity(x, groundY) {
+  ctx.fillStyle='#4466aa';
+  // Main building
+  ctx.fillRect(x-20, groundY-30, 40, 30);
+  // Towers
+  ctx.fillRect(x-18, groundY-44, 10, 14);
+  ctx.fillRect(x+8,  groundY-38, 10, 8);
+  ctx.fillRect(x-4,  groundY-50, 8, 20);
+  // Windows
+  ctx.fillStyle='#ffff88';
+  for(let i=0;i<3;i++) for(let j=0;j<2;j++) {
+    if(Math.random()>0.3) ctx.fillRect(x-14+i*12, groundY-24+j*10, 6, 5);
+  }
+}
+
+function drawBase(x, groundY) {
+  ctx.fillStyle='#558855';
+  ctx.beginPath();
+  ctx.moveTo(x-22, groundY);
+  ctx.lineTo(x+22, groundY);
+  ctx.lineTo(x+14, groundY-14);
+  ctx.lineTo(x-14, groundY-14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle='#336633';
+  ctx.fillRect(x-4, groundY-24, 8, 10);
+  // Ammo indicator
+  ctx.fillStyle='#6bcb77';
+  ctx.font='6px "Press Start 2P"';
+  ctx.textAlign='center';
+  ctx.fillText(ammo>0?'●':'×', x, groundY-28);
+}
+
+function updateHUD() {
+  document.getElementById('scoreEl').textContent=score;
+  document.getElementById('hiEl').textContent=Math.max(score,hiScore);
+  document.getElementById('waveEl').textContent=wave;
+  document.getElementById('citiesEl').textContent=cities.length;
+  document.getElementById('ammoEl').textContent=ammo;
+}
+
+function endGame() {
+  gameRunning=false;
+  hiScore=Math.max(score,hiScore);
+  overlay.innerHTML=`
+    <h2>GAME OVER</h2>
+    <div class="final-score">${score} pts</div>
+    <p>Wave: ${wave}<br>High Score: ${hiScore}</p>
+    <button class="start-btn" onclick="startGame()">PLAY AGAIN</button>
+  `;
+  overlay.style.display='flex';
+}
+
+function gameLoop() {
+  update();
+  render();
+  frameId=requestAnimationFrame(gameLoop);
+}
+
+function startGame() {
+  overlay.style.display='none';
+  if(frameId) cancelAnimationFrame(frameId);
+  initGame();
+  tick=0;
+  gameLoop();
+}
+
+canvas.addEventListener('click',e=>{
+  if(!gameRunning||waveTransition) return;
+  const rect=canvas.getBoundingClientRect();
+  const scaleX=W/rect.width, scaleY=H/rect.height;
+  const mx=(e.clientX-rect.left)*scaleX;
+  const my=(e.clientY-rect.top)*scaleY;
+  if(my<GROUND_Y) fireInterceptor(mx,my);
+});
+
+document.getElementById('startBtn').onclick=startGame;
+</script>
+</body>
+</html>

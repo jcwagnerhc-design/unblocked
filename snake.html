@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake - Arcade Zone</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background:#080818;
+      color:#fff;
+      font-family:'Press Start 2P', monospace;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      min-height:100vh;
+      padding:20px;
+    }
+    nav { width:100%; max-width:600px; margin-bottom:20px; }
+    .back-btn {
+      color:#6bcb77;
+      text-decoration:none;
+      font-size:10px;
+      border:1px solid #6bcb77;
+      padding:8px 14px;
+      border-radius:6px;
+      transition:background 0.2s;
+    }
+    .back-btn:hover { background:rgba(107,203,119,0.2); }
+    h1 {
+      color:#6bcb77;
+      font-size:clamp(16px,3vw,24px);
+      text-align:center;
+      margin-bottom:20px;
+      text-shadow:0 0 20px rgba(107,203,119,0.5);
+    }
+    .hud {
+      display:flex;
+      gap:30px;
+      margin-bottom:14px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .hud-item { text-align:center; }
+    .hud-label { font-size:8px; color:#6bcb77; margin-bottom:6px; }
+    .hud-value { font-size:18px; }
+    canvas {
+      border:2px solid #1a4a1a;
+      background:#000;
+      box-shadow:0 0 30px rgba(107,203,119,0.3);
+      border-radius:4px;
+      display:block;
+    }
+    .controls-hint {
+      margin-top:14px;
+      font-size:8px;
+      color:#4a7a4a;
+      text-align:center;
+      line-height:2;
+    }
+    .controls-hint span { color:#6bcb77; }
+    #overlay {
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.88);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:18px;
+      z-index:10;
+    }
+    #overlay h2 { font-size:22px; color:#6bcb77; }
+    #overlay p { font-size:10px; color:#aaa; text-align:center; line-height:2; }
+    #overlay .score-display { font-size:24px; color:#fff; }
+    .start-btn {
+      background:#6bcb77;
+      color:#000;
+      border:none;
+      padding:12px 24px;
+      font-family:'Press Start 2P', monospace;
+      font-size:12px;
+      border-radius:8px;
+      cursor:pointer;
+      transition:filter 0.2s;
+      margin-top:6px;
+    }
+    .start-btn:hover { filter:brightness(1.2); }
+  </style>
+</head>
+<body>
+<nav><a class="back-btn" href="index.html">&larr; BACK</a></nav>
+<h1>SNAKE</h1>
+
+<div class="hud">
+  <div class="hud-item"><div class="hud-label">SCORE</div><div class="hud-value" id="scoreEl">0</div></div>
+  <div class="hud-item"><div class="hud-label">HIGH SCORE</div><div class="hud-value" id="hiScoreEl">0</div></div>
+  <div class="hud-item"><div class="hud-label">LENGTH</div><div class="hud-value" id="lengthEl">1</div></div>
+</div>
+
+<canvas id="gameCanvas" width="500" height="500"></canvas>
+
+<div class="controls-hint">
+  <span>↑ ↓ ← →</span> or <span>W A S D</span> to move &nbsp;|&nbsp; <span>P</span> to pause
+</div>
+
+<div id="overlay" id="overlay">
+  <h2>SNAKE</h2>
+  <p>Eat the food to grow longer.<br>Don't hit walls or yourself!</p>
+  <button class="start-btn" id="startBtn">START GAME</button>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const GRID = 20;
+const CELL = canvas.width / GRID;
+const overlay = document.getElementById('overlay');
+
+let snake, dir, nextDir, food, score, hiScore=0, gameRunning, paused, intervalId;
+
+function randCell() {
+  return { x: Math.floor(Math.random()*GRID), y: Math.floor(Math.random()*GRID) };
+}
+
+function spawnFood() {
+  let pos;
+  do { pos = randCell(); } while (snake.some(s=>s.x===pos.x&&s.y===pos.y));
+  food = pos;
+}
+
+function initGame() {
+  const cx=Math.floor(GRID/2);
+  snake = [{x:cx,y:cx},{x:cx-1,y:cx},{x:cx-2,y:cx}];
+  dir = {x:1,y:0};
+  nextDir = {x:1,y:0};
+  score = 0;
+  spawnFood();
+  gameRunning = true;
+  paused = false;
+  updateHUD();
+}
+
+function updateHUD() {
+  document.getElementById('scoreEl').textContent = score;
+  document.getElementById('hiScoreEl').textContent = hiScore;
+  document.getElementById('lengthEl').textContent = snake.length;
+}
+
+function step() {
+  if(!gameRunning||paused) return;
+  dir = nextDir;
+  const head = { x: snake[0].x+dir.x, y: snake[0].y+dir.y };
+  // Wall collision
+  if(head.x<0||head.x>=GRID||head.y<0||head.y>=GRID) { endGame(); return; }
+  // Self collision
+  if(snake.some(s=>s.x===head.x&&s.y===head.y)) { endGame(); return; }
+
+  snake.unshift(head);
+  if(head.x===food.x&&head.y===food.y) {
+    score += 10 + Math.floor(snake.length/5)*5;
+    spawnFood();
+  } else {
+    snake.pop();
+  }
+  updateHUD();
+  draw();
+}
+
+function draw() {
+  ctx.fillStyle='#000';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Grid dots
+  ctx.fillStyle='rgba(107,203,119,0.06)';
+  for(let x=0;x<GRID;x++)
+    for(let y=0;y<GRID;y++) {
+      ctx.beginPath();
+      ctx.arc(x*CELL+CELL/2, y*CELL+CELL/2, 1, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+  // Food
+  const fx=food.x*CELL, fy=food.y*CELL;
+  const pulse = 0.8 + 0.2*Math.sin(Date.now()/200);
+  ctx.save();
+  ctx.translate(fx+CELL/2, fy+CELL/2);
+  ctx.scale(pulse, pulse);
+  // Apple shape
+  ctx.fillStyle='#ff6b6b';
+  ctx.beginPath();
+  ctx.arc(0, 1, CELL/2-2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.arc(-3, -3, 3, 0, Math.PI*2);
+  ctx.fill();
+  // Stem
+  ctx.strokeStyle='#6bcb77';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(0,-CELL/2+4);
+  ctx.lineTo(3,-CELL/2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Snake
+  for(let i=0;i<snake.length;i++) {
+    const seg = snake[i];
+    const t = i/snake.length;
+    const green = Math.floor(203-t*80);
+    ctx.fillStyle = i===0 ? '#6bcb77' : `rgb(${Math.floor(50+t*30)},${green},${Math.floor(80+t*20)})`;
+    const pad = i===0 ? 1 : 2;
+    const r = i===0 ? 5 : 4;
+    roundRect(ctx, seg.x*CELL+pad, seg.y*CELL+pad, CELL-pad*2, CELL-pad*2, r);
+    ctx.fill();
+    // Highlight on head
+    if(i===0) {
+      ctx.fillStyle='rgba(255,255,255,0.2)';
+      roundRect(ctx, seg.x*CELL+pad, seg.y*CELL+pad, CELL-pad*2, 5, 3);
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle='#000';
+      const ex1 = dir.x===1?CELL-7:(dir.x===-1?3:(CELL/2-4));
+      const ey1 = dir.y===1?CELL-7:(dir.y===-1?3:(CELL/2-4));
+      const ex2 = dir.x===1?CELL-7:(dir.x===-1?3:(CELL/2+1));
+      const ey2 = dir.y===1?CELL-7:(dir.y===-1?3:(CELL/2+1));
+      ctx.beginPath(); ctx.arc(seg.x*CELL+ex1, seg.y*CELL+ey1, 2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(seg.x*CELL+ex2, seg.y*CELL+ey2, 2, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  if(paused) {
+    ctx.fillStyle='rgba(0,0,0,0.6)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#6bcb77';
+    ctx.font='16px "Press Start 2P"';
+    ctx.textAlign='center';
+    ctx.fillText('PAUSED', canvas.width/2, canvas.height/2);
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function endGame() {
+  gameRunning=false;
+  if(score>hiScore) hiScore=score;
+  clearInterval(intervalId);
+  overlay.innerHTML=`
+    <h2>GAME OVER!</h2>
+    <div class="score-display">${score} pts</div>
+    <p>Length: ${snake.length} segments<br>High Score: ${hiScore}</p>
+    <button class="start-btn" onclick="startGame()">PLAY AGAIN</button>
+  `;
+  overlay.style.display='flex';
+}
+
+function startGame() {
+  overlay.style.display='none';
+  clearInterval(intervalId);
+  initGame();
+  draw();
+  intervalId = setInterval(step, 120);
+}
+
+document.addEventListener('keydown', e=>{
+  if(!gameRunning && e.key==='Enter') { startGame(); return; }
+  if(e.key==='p'||e.key==='P') { paused=!paused; if(!paused) draw(); return; }
+  const moves = {
+    ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1},
+    ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0},
+    w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0},
+    W:{x:0,y:-1}, S:{x:0,y:1}, A:{x:-1,y:0}, D:{x:1,y:0},
+  };
+  if(moves[e.key]) {
+    e.preventDefault();
+    const nd=moves[e.key];
+    if(nd.x+dir.x!==0||nd.y+dir.y!==0) nextDir=nd;
+  }
+});
+
+document.getElementById('startBtn').onclick = startGame;
+
+// Animate food pulsing even before start
+function animLoop() { if(gameRunning) draw(); requestAnimationFrame(animLoop); }
+animLoop();
+</script>
+</body>
+</html>

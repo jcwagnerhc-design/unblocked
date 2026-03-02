@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arcade Zone - Free Unblocked Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #080818;
+      color: #fff;
+      font-family: 'Orbitron', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .stars {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .star {
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle linear infinite;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
+    }
+    header {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 50px 20px 30px;
+    }
+    .logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(24px, 5vw, 48px);
+      background: linear-gradient(135deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #c77dff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: none;
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+    }
+    .tagline {
+      color: #a0a0c0;
+      font-size: 13px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    .divider {
+      width: 200px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #4d96ff, transparent);
+      margin: 20px auto;
+    }
+    .games-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px 30px 60px;
+    }
+    .game-card {
+      background: linear-gradient(145deg, #0d0d2b, #13132e);
+      border: 1px solid #1e1e4a;
+      border-radius: 16px;
+      overflow: hidden;
+      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .game-card:hover {
+      transform: translateY(-8px) scale(1.02);
+      border-color: var(--accent);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 30px var(--glow);
+    }
+    .card-preview {
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-preview canvas {
+      position: absolute;
+      top: 0; left: 0;
+    }
+    .card-icon {
+      font-size: 72px;
+      z-index: 1;
+      filter: drop-shadow(0 0 20px var(--accent));
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+    .card-bg {
+      position: absolute;
+      inset: 0;
+      opacity: 0.15;
+    }
+    .card-body {
+      padding: 20px;
+    }
+    .card-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      color: var(--accent);
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
+    .card-desc {
+      font-size: 11px;
+      color: #8888aa;
+      line-height: 1.6;
+      margin-bottom: 16px;
+      font-family: sans-serif;
+    }
+    .card-tags {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      font-size: 9px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #aaa;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .play-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      text-align: center;
+      cursor: pointer;
+      transition: filter 0.2s, transform 0.1s;
+      letter-spacing: 1px;
+    }
+    .play-btn:hover {
+      filter: brightness(1.2);
+      transform: scale(1.02);
+    }
+    .play-btn:active { transform: scale(0.98); }
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 30px;
+      color: #444;
+      font-size: 11px;
+      border-top: 1px solid #1a1a3a;
+    }
+  </style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<header>
+  <div class="logo">ARCADE ZONE</div>
+  <div class="tagline">Classic Games &mdash; Play Free, No Downloads</div>
+  <div class="divider"></div>
+</header>
+
+<div class="games-grid">
+
+  <a href="tetris.html" class="game-card" style="--accent:#4d96ff;--glow:rgba(77,150,255,0.3)">
+    <div class="card-preview" style="background:linear-gradient(135deg,#0a0a2e,#0d1b4e)">
+      <div class="card-bg" style="background:repeating-linear-gradient(0deg,rgba(77,150,255,0.1) 0px,rgba(77,150,255,0.1) 20px,transparent 20px,transparent 40px),repeating-linear-gradient(90deg,rgba(77,150,255,0.1) 0px,rgba(77,150,255,0.1) 20px,transparent 20px,transparent 40px)"></div>
+      <div class="card-icon">🟦</div>
+    </div>
+    <div class="card-body">
+      <div class="card-title">TETRIS</div>
+      <div class="card-desc">Stack falling blocks and clear lines before the stack reaches the top. A timeless puzzle classic.</div>
+      <div class="card-tags"><span class="tag">Puzzle</span><span class="tag">Classic</span><span class="tag">Keyboard</span></div>
+      <div class="play-btn">PLAY NOW</div>
+    </div>
+  </a>
+
+  <a href="snake.html" class="game-card" style="--accent:#6bcb77;--glow:rgba(107,203,119,0.3)">
+    <div class="card-preview" style="background:linear-gradient(135deg,#0a1f0a,#0d2e0d)">
+      <div class="card-bg" style="background:repeating-linear-gradient(0deg,rgba(107,203,119,0.08) 0px,rgba(107,203,119,0.08) 20px,transparent 20px,transparent 40px),repeating-linear-gradient(90deg,rgba(107,203,119,0.08) 0px,rgba(107,203,119,0.08) 20px,transparent 20px,transparent 40px)"></div>
+      <div class="card-icon">🐍</div>
+    </div>
+    <div class="card-body">
+      <div class="card-title">SNAKE</div>
+      <div class="card-desc">Guide your snake to eat food and grow longer. Don't bite yourself or hit the walls!</div>
+      <div class="card-tags"><span class="tag">Arcade</span><span class="tag">Classic</span><span class="tag">Keyboard</span></div>
+      <div class="play-btn">PLAY NOW</div>
+    </div>
+  </a>
+
+  <a href="rps.html" class="game-card" style="--accent:#ffd93d;--glow:rgba(255,217,61,0.3)">
+    <div class="card-preview" style="background:linear-gradient(135deg,#1f1a0a,#2e250d)">
+      <div class="card-bg" style="background:radial-gradient(circle at 30% 70%, rgba(255,217,61,0.15) 0%, transparent 60%), radial-gradient(circle at 70% 30%, rgba(255,150,61,0.15) 0%, transparent 60%)"></div>
+      <div class="card-icon">✊</div>
+    </div>
+    <div class="card-body">
+      <div class="card-title">ROCK PAPER SCISSORS</div>
+      <div class="card-desc">The ultimate hand game! Challenge the computer and see who can outsmart who.</div>
+      <div class="card-tags"><span class="tag">Strategy</span><span class="tag">Casual</span><span class="tag">Mouse</span></div>
+      <div class="play-btn">PLAY NOW</div>
+    </div>
+  </a>
+
+  <a href="pacman.html" class="game-card" style="--accent:#ffd93d;--glow:rgba(255,217,61,0.4)">
+    <div class="card-preview" style="background:linear-gradient(135deg,#000010,#000820)">
+      <div class="card-bg" style="background:radial-gradient(circle at 50% 50%, rgba(255,217,61,0.1) 0%, transparent 70%)"></div>
+      <div class="card-icon">👾</div>
+    </div>
+    <div class="card-body">
+      <div class="card-title">PAC-MAN</div>
+      <div class="card-desc">Eat all the dots while avoiding colorful ghosts. Grab power pellets to turn the tables!</div>
+      <div class="card-tags"><span class="tag">Arcade</span><span class="tag">Classic</span><span class="tag">Keyboard</span></div>
+      <div class="play-btn">PLAY NOW</div>
+    </div>
+  </a>
+
+  <a href="missile-command.html" class="game-card" style="--accent:#ff6b6b;--glow:rgba(255,107,107,0.3)">
+    <div class="card-preview" style="background:linear-gradient(135deg,#1a0a0a,#200d0d)">
+      <div class="card-bg" style="background:radial-gradient(circle at 50% 100%, rgba(255,107,107,0.2) 0%, transparent 60%)"></div>
+      <div class="card-icon">🚀</div>
+    </div>
+    <div class="card-body">
+      <div class="card-title">MISSILE COMMAND</div>
+      <div class="card-desc">Defend your cities from incoming missiles! Click to fire interceptors before it's too late.</div>
+      <div class="card-tags"><span class="tag">Action</span><span class="tag">Classic</span><span class="tag">Mouse</span></div>
+      <div class="play-btn">PLAY NOW</div>
+    </div>
+  </a>
+
+</div>
+
+<footer>
+  &copy; 2024 Arcade Zone &mdash; All games run in your browser with no plugins required
+</footer>
+
+<script>
+  // Generate starfield
+  const starsEl = document.getElementById('stars');
+  for (let i = 0; i < 150; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    const size = Math.random() * 2 + 1;
+    star.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      top:${Math.random()*100}%;
+      animation-duration:${2+Math.random()*4}s;
+      animation-delay:${Math.random()*4}s;
+    `;
+    starsEl.appendChild(star);
+  }
+</script>
+</body>
+</html>
